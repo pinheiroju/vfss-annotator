@@ -15,50 +15,50 @@
     </div>
   </header>
 
-  <!-- tabs -->
+  <!-- TABS -->
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('converter')">⟳ Converter AVI → MP4</button>
-    <button class="tab" onclick="switchTab('annotator')">▶ Anotar</button>
+    <button class="tab active" onclick="switchTab('converter')"> Converter </button>
+    <button class="tab" onclick="switchTab('annotator')"> Anotar </button>
   </div>
 
-<!-- TAB: CONVERTER -->
-<div id="tab-converter">
-  <div class="converter-wrap">
-    <div class="video-panel">
-      <div class="panel-header">
-        <div><span class="status-dot" id="conv-status-dot"></span><span id="conv-status-text">Aguardando arquivos</span></div>
-      </div>
-
-      <div id="conv-drop-zone" onclick="document.getElementById('conv-file-input').click()">
-        <div class="drop-icon">⟳</div>
-        <div class="drop-text">
-          <strong>Arraste arquivos AVI aqui</strong><br>
-          ou clique para selecionar<br>
-          <span style="font-size:11px;">AVI · Conversão feita no browser via FFmpeg.wasm</span>
+  <!-- TAB: CONVERTER -->
+  <div id="tab-converter" style="display:block;">
+    <div class="converter-wrap">
+      <div class="video-panel">
+        <div class="panel-header">
+          <div><span class="status-dot" id="conv-status-dot"></span><span id="conv-status-text">Aguardando arquivos</span></div>
         </div>
-      </div>
 
-      <div id="conv-file-list" style="display:none; padding:16px;">
-        <div class="timeline-label" style="margin-bottom:12px;">Arquivos selecionados</div>
-        <div id="conv-items"></div>
-      </div>
+        <div id="conv-drop-zone" onclick="document.getElementById('conv-file-input').click()">
+          <div class="drop-icon">⟳</div>
+          <div class="drop-text">
+            <strong>Arraste arquivos AVI aqui</strong><br>
+            ou clique para selecionar<br>
+            <span style="font-size:11px;">AVI · Conversão feita no browser via FFmpeg.wasm</span>
+          </div>
+        </div>
 
-      <div class="controls" style="border-top:1px solid var(--border);">
-        <button class="btn btn-primary" onclick="startConversion()" id="btn-convert" disabled>
-          ⟳ Converter todos
-        </button>
-        <div id="conv-overall-label" style="font-size:11px;color:var(--text-dim);margin-left:8px;"></div>
-      </div>
+        <div id="conv-file-list" style="display:none; padding:16px;">
+          <div class="timeline-label" style="margin-bottom:12px;">Arquivos selecionados</div>
+          <div id="conv-items"></div>
+        </div>
 
-      <div id="conv-loading" style="display:none; padding:20px 16px; font-size:12px; color:var(--text-dim); text-align:center;">
-        Carregando FFmpeg… aguarde alguns segundos na primeira vez.
+        <div class="controls" style="border-top:1px solid var(--border);">
+          <button class="btn btn-primary" onclick="startConversion()" id="btn-convert" disabled>
+            ⟳ Converter todos
+          </button>
+          <div id="conv-overall-label" style="font-size:11px;color:var(--text-dim);margin-left:8px;"></div>
+        </div>
+
+        <div id="conv-loading" style="display:none; padding:20px 16px; font-size:12px; color:var(--text-dim); text-align:center;">
+          Carregando FFmpeg… aguarde alguns segundos na primeira vez.
+        </div>
       </div>
     </div>
   </div>
-</div>
-
 
   <!-- TAB: ANNOTATOR -->
+  <div id="tab-annotator" style="display:none;">
   <div class="main-grid">
     <div style="display:flex;flex-direction:column;gap:16px;">
       <div class="video-panel">
@@ -108,23 +108,23 @@
             <button class="speed-btn" onclick="setSpeed(0.5)">0.5×</button>
             <button class="speed-btn" onclick="setSpeed(1)">1×</button>
           </div>
-          <button class="btn" onclick="stepBack()"><kbd>←</kbd> Frame</button>
-          <button class="btn" id="play-btn" onclick="togglePlay()"><kbd>Espaço</kbd> Play</button>
-          <button class="btn" onclick="stepForward()">Frame <kbd>→</kbd></button>
+          <button class="btn" onclick="stepBack()">← Frame</button>
+          <button class="btn" id="play-btn" onclick="togglePlay()">Play</button>
+          <button class="btn" onclick="stepForward()">Frame →</button>
         </div>
 
         <div class="controls" style="border-top:1px solid var(--border);">
           <button class="btn btn-ueso" onclick="markUESO()" id="btn-ueso" disabled>
-            <kbd>O</kbd> Marcar UESO
+            Marcar UESO
           </button>
           <button class="btn btn-uesc" onclick="markUESC()" id="btn-uesc" disabled>
-            <kbd>C</kbd> Marcar UESC
+            Marcar UESC
           </button>
           <button class="btn btn-auto" onclick="runAutoDetect()" id="btn-auto" disabled>
-            <kbd>A</kbd> Auto-detectar
+            Auto-detectar
           </button>
           <button class="btn btn-primary" onclick="saveAnnotation()" id="btn-save" disabled>
-            <kbd>S</kbd> Salvar
+            Salvar
           </button>
         </div>
 
@@ -160,6 +160,7 @@
       </div>
     </div>
 
+    
     <div class="side-panel">
       <div class="card">
         <div class="card-header">Anotação atual</div>
@@ -188,21 +189,6 @@
       </div>
 
       <div class="card">
-        <div class="card-header">Atalhos</div>
-        <div class="card-body">
-          <div class="key-list">
-            <div class="key-item"><kbd>O</kbd> <span>Marcar UESO (abertura)</span></div>
-            <div class="key-item"><kbd>C</kbd> <span>Marcar UESC (fechamento)</span></div>
-            <div class="key-item"><kbd>A</kbd> <span>Auto-detectar eventos</span></div>
-            <div class="key-item"><kbd>S</kbd> <span>Salvar anotação</span></div>
-            <div class="key-item"><kbd>Espaço</kbd> <span>Play / Pause</span></div>
-            <div class="key-item"><kbd>← →</kbd> <span>Frame a frame</span></div>
-            <div class="key-item"><kbd>R</kbd> <span>Resetar marcadores</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
         <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span>Anotações salvas</span>
           <span id="ann-count" style="color:var(--accent);font-weight:700;">0</span>
@@ -212,6 +198,7 @@
         </div>
       </div>
     </div>
+  </div>
   </div>
 </div>
 

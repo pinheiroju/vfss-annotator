@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VFSS Annotator — UESOdur</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">VFSS<span>.</span>Annotator</div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <div class="badge">PUC-Rio · 2026</div>
+    </div>
+  </header>
+
+  <div class="main-grid">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="video-panel">
+        <div class="panel-header">
+          <div><span class="status-dot" id="status-dot"></span><span id="status-text">Aguardando vídeo</span></div>
+          <div id="video-name" style="color:var(--text);font-size:11px;"></div>
+        </div>
+
+        <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+          <div class="drop-icon">▶</div>
+          <div class="drop-text">
+            <strong>Arraste um vídeo VFSS aqui</strong><br>
+            ou clique para selecionar<br>
+            <span style="font-size:11px;">MP4</span>
+          </div>
+        </div>
+
+        <div id="video-container">
+          <video id="hidden-video"></video>
+          <canvas id="main-canvas"></canvas>
+        </div>
+
+        <div class="timeline-section">
+          <div class="timeline-label">Timeline de frames</div>
+          <div id="timeline-bar" onclick="seekToClick(event)">
+            <div id="timeline-progress" style="width:0%"></div>
+            <div class="uesdur-highlight" id="dur-highlight"></div>
+            <div class="marker" id="marker-suggestion">
+              <div class="marker-label">SUGESTÃO</div>
+            </div>
+            <div class="marker" id="marker-ueso">
+              <div class="marker-label">UESO</div>
+            </div>
+            <div class="marker" id="marker-uesc">
+              <div class="marker-label">UESC</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="frame-info">
+            Frame <strong id="cur-frame">—</strong> / <strong id="total-frames">—</strong>
+            &nbsp;|&nbsp; <strong id="cur-time">0.000</strong>s
+          </div>
+          <div class="speed-btns">
+            <button class="speed-btn active" onclick="setSpeed(0.25)">0.25×</button>
+            <button class="speed-btn" onclick="setSpeed(0.5)">0.5×</button>
+            <button class="speed-btn" onclick="setSpeed(1)">1×</button>
+          </div>
+          <button class="btn" onclick="stepBack()"><kbd>←</kbd> Frame</button>
+          <button class="btn" id="play-btn" onclick="togglePlay()"><kbd>Espaço</kbd> Play</button>
+          <button class="btn" onclick="stepForward()">Frame <kbd>→</kbd></button>
+        </div>
+
+        <div class="controls" style="border-top:1px solid var(--border);">
+          <button class="btn btn-ueso" onclick="markUESO()" id="btn-ueso" disabled>
+            <kbd>O</kbd> Marcar UESO
+          </button>
+          <button class="btn btn-uesc" onclick="markUESC()" id="btn-uesc" disabled>
+            <kbd>C</kbd> Marcar UESC
+          </button>
+          <button class="btn btn-auto" onclick="runAutoDetect()" id="btn-auto" disabled>
+            <kbd>A</kbd> Auto-detectar
+          </button>
+          <button class="btn btn-primary" onclick="saveAnnotation()" id="btn-save" disabled>
+            <kbd>S</kbd> Salvar
+          </button>
+        </div>
+
+        <div class="progress-section">
+          <span id="progress-label">0 / 0 vídeos anotados</span>
+          <div id="progress-bar-wrap"><div id="progress-bar-fill"></div></div>
+          <button class="btn btn-primary" onclick="exportCSV()" style="font-size:10px;padding:6px 12px;">
+            ↓ Exportar CSV
+          </button>
+        </div>
+      </div>
+
+      <div id="suggestion-panel">
+        <div class="sug-title">⚡ Sugestão Automática</div>
+        <div class="sug-row">
+          <span style="color:var(--text-dim)">UESO sugerido</span>
+          <span class="sug-val" id="sug-ueso-val">—</span>
+        </div>
+        <div class="sug-row">
+          <span style="color:var(--text-dim)">UESC sugerido</span>
+          <span class="sug-val" id="sug-uesc-val">—</span>
+        </div>
+        <div class="sug-row">
+          <span style="color:var(--text-dim)">UESOdur estimado</span>
+          <span class="sug-val" id="sug-dur-val">—</span>
+        </div>
+        <div class="sug-actions">
+          <button class="btn btn-accept" onclick="acceptSuggestion()">✓ Aceitar</button>
+          <button class="btn btn-reject" onclick="rejectSuggestion()">✗ Rejeitar</button>
+          <button class="btn" onclick="goToSugUESO()" style="font-size:10px;padding:6px 10px;">Ver UESO</button>
+          <button class="btn" onclick="goToSugUESC()" style="font-size:10px;padding:6px 10px;">Ver UESC</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <div class="card">
+        <div class="card-header">Anotação atual</div>
+        <div class="card-body">
+          <div class="metric-row">
+            <span class="metric-label">UESO frame</span>
+            <span class="metric-value ueso" id="m-ueso">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">UESO time</span>
+            <span class="metric-value ueso" id="m-ueso-t" style="font-size:12px;">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">UESC frame</span>
+            <span class="metric-value uesc" id="m-uesc">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">UESC time</span>
+            <span class="metric-value uesc" id="m-uesc-t" style="font-size:12px;">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">UESOdur</span>
+            <span class="metric-value dur" id="m-dur">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">Atalhos</div>
+        <div class="card-body">
+          <div class="key-list">
+            <div class="key-item"><kbd>O</kbd> <span>Marcar UESO (abertura)</span></div>
+            <div class="key-item"><kbd>C</kbd> <span>Marcar UESC (fechamento)</span></div>
+            <div class="key-item"><kbd>A</kbd> <span>Auto-detectar eventos</span></div>
+            <div class="key-item"><kbd>S</kbd> <span>Salvar anotação</span></div>
+            <div class="key-item"><kbd>Espaço</kbd> <span>Play / Pause</span></div>
+            <div class="key-item"><kbd>← →</kbd> <span>Frame a frame</span></div>
+            <div class="key-item"><kbd>R</kbd> <span>Resetar marcadores</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Anotações salvas</span>
+          <span id="ann-count" style="color:var(--accent);font-weight:700;">0</span>
+        </div>
+        <div id="ann-list-wrap">
+          <div class="empty-state">Nenhuma anotação ainda.<br>Marque UESO + UESC e pressione S.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<input type="file" id="file-input" accept="video/*" onchange="loadVideo(event)">
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -15,6 +15,50 @@
     </div>
   </header>
 
+  <!-- tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('converter')">⟳ Converter AVI → MP4</button>
+    <button class="tab" onclick="switchTab('annotator')">▶ Anotar</button>
+  </div>
+
+<!-- TAB: CONVERTER -->
+<div id="tab-converter">
+  <div class="converter-wrap">
+    <div class="video-panel">
+      <div class="panel-header">
+        <div><span class="status-dot" id="conv-status-dot"></span><span id="conv-status-text">Aguardando arquivos</span></div>
+      </div>
+
+      <div id="conv-drop-zone" onclick="document.getElementById('conv-file-input').click()">
+        <div class="drop-icon">⟳</div>
+        <div class="drop-text">
+          <strong>Arraste arquivos AVI aqui</strong><br>
+          ou clique para selecionar<br>
+          <span style="font-size:11px;">AVI · Conversão feita no browser via FFmpeg.wasm</span>
+        </div>
+      </div>
+
+      <div id="conv-file-list" style="display:none; padding:16px;">
+        <div class="timeline-label" style="margin-bottom:12px;">Arquivos selecionados</div>
+        <div id="conv-items"></div>
+      </div>
+
+      <div class="controls" style="border-top:1px solid var(--border);">
+        <button class="btn btn-primary" onclick="startConversion()" id="btn-convert" disabled>
+          ⟳ Converter todos
+        </button>
+        <div id="conv-overall-label" style="font-size:11px;color:var(--text-dim);margin-left:8px;"></div>
+      </div>
+
+      <div id="conv-loading" style="display:none; padding:20px 16px; font-size:12px; color:var(--text-dim); text-align:center;">
+        Carregando FFmpeg… aguarde alguns segundos na primeira vez.
+      </div>
+    </div>
+  </div>
+</div>
+
+
+  <!-- TAB: ANNOTATOR -->
   <div class="main-grid">
     <div style="display:flex;flex-direction:column;gap:16px;">
       <div class="video-panel">
@@ -172,8 +216,11 @@
 </div>
 
 <div id="toast"></div>
-<input type="file" id="file-input" accept="video/*" onchange="loadVideo(event)">
+<input type="file" id="file-input" accept="video/mp4" onchange="loadVideo(event)">
+<input type="file" id="conv-file-input" accept="video/avi,.avi" multiple onchange="convFilesSelected(event)">
 
-<script src="app.js"></script>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script src="annotator_tab.js"></script>
+<script src="converter_tab.js"></script>
 </body>
 </html>

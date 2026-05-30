@@ -39,6 +39,18 @@ function switchTab(name) {
     document.getElementById('conv-file-list').style.display = 'block';
     document.getElementById('conv-drop-zone').style.display = 'none';
     document.getElementById('btn-convert').disabled = false;
+    document.getElementById('btn-conv-clear').style.display = 'inline-flex';
+  }
+
+  function clearConvFiles() {
+    conv.files = [];
+    document.getElementById('conv-items').innerHTML = '';
+    document.getElementById('conv-file-list').style.display = 'none';
+    document.getElementById('conv-drop-zone').style.display = 'block';
+    document.getElementById('btn-convert').disabled = true;
+    document.getElementById('btn-conv-clear').style.display = 'none';
+    document.getElementById('conv-overall-label').textContent = '';
+    document.getElementById('conv-file-input').value = '';
   }
   
   function renderConvList() {

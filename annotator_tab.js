@@ -13,7 +13,66 @@ const state = {
   sugUESO: null,
   sugUESC: null,
   diffData: [],
+  queue: [],       // [{ file, status: 'pending'|'done' }]
+  queueIndex: -1,
 };
+
+function loadFilesFromInput(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+  state.queue = files.map(f => ({ file: f, status: 'pending' }));
+  state.queueIndex = 0;
+  renderQueue();
+  loadQueueItem(0);
+}
+
+function loadQueueItem(index) {
+  if (index < 0 || index >= state.queue.length) return;
+  state.queueIndex = index;
+  state.uesoFrame = null;
+  state.uescFrame = null;
+  state.sugUESO = null;
+  state.sugUESC = null;
+  state.diffData = [];
+  document.getElementById('suggestion-panel').style.display = 'none';
+  renderQueue();
+  loadVideo({ target: { files: [state.queue[index].file] } });
+}
+
+function prevVideo() {
+  if (state.queueIndex > 0) loadQueueItem(state.queueIndex - 1);
+}
+
+function nextVideo() {
+  if (state.queueIndex < state.queue.length - 1) loadQueueItem(state.queueIndex + 1);
+}
+
+function renderQueue() {
+  const card = document.getElementById('queue-card');
+  if (state.queue.length <= 1) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  const done = state.queue.filter(q => q.status === 'done').length;
+  document.getElementById('queue-count').textContent = `${done}/${state.queue.length}`;
+
+  const wrap = document.getElementById('queue-list-wrap');
+  wrap.innerHTML = state.queue.map((item, i) => {
+    const active = i === state.queueIndex ? 'queue-item-active' : '';
+    const icon = item.status === 'done' ? '✓' : '·';
+    const iconColor = item.status === 'done' ? 'var(--accent)' : 'var(--text-dim)';
+    const short = item.file.name.length > 22 ? item.file.name.slice(0, 20) + '…' : item.file.name;
+    return `<div class="queue-item ${active}" onclick="loadQueueItem(${i})" title="${item.file.name}">
+      <span style="color:${iconColor};font-weight:700;min-width:14px;">${icon}</span>
+      <span>${short}</span>
+    </div>`;
+  }).join('');
+
+  // mostrar/esconder botões de navegação
+  const hasPrev = state.queueIndex > 0;
+  const hasNext = state.queueIndex < state.queue.length - 1;
+  document.getElementById('btn-prev').style.display = hasPrev ? 'inline-flex' : 'none';
+  document.getElementById('btn-next').style.display = hasNext ? 'inline-flex' : 'none';
+}
 
 function loadVideo(event) {
   const file = event.target.files[0];
@@ -268,8 +327,21 @@ function saveAnnotation() {
   };
   state.annotations.push(ann);
   renderAnnotationsList();
-  toast(`✓ Anotação salva! UESOdur = ${dur_ms}ms`, 3000);
   updateProgress();
+
+  if (state.queue.length > 1) {
+    state.queue[state.queueIndex].status = 'done';
+    renderQueue();
+    const nextIdx = state.queueIndex + 1;
+    if (nextIdx < state.queue.length) {
+      toast(`✓ Salvo! Carregando próximo vídeo… (${nextIdx + 1}/${state.queue.length})`, 2500);
+      setTimeout(() => loadQueueItem(nextIdx), 800);
+    } else {
+      toast(`✓ Todos os ${state.queue.length} vídeos anotados! Exporte o CSV.`, 3500);
+    }
+  } else {
+    toast(`✓ Anotação salva! UESOdur = ${dur_ms}ms`, 3000);
+  }
 }
 
 function deleteAnnotation(id) {
@@ -467,8 +539,8 @@ dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag-over'); };
 dz.ondragleave = () => dz.classList.remove('drag-over');
 dz.ondrop = e => {
   e.preventDefault(); dz.classList.remove('drag-over');
-  const f = e.dataTransfer.files[0];
-  if (f) loadVideo({target:{files:[f]}});
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/'));
+  if (files.length) loadFilesFromInput({ target: { files } });
 };
 
 let toastTimer;

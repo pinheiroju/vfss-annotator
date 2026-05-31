@@ -130,6 +130,8 @@
           <button class="btn btn-primary" onclick="saveAnnotation()" id="btn-save" disabled>
             Salvar
           </button>
+          <button class="btn" onclick="prevVideo()" id="btn-prev" style="display:none;">← Anterior</button>
+          <button class="btn" onclick="nextVideo()" id="btn-next" style="display:none;">Próximo →</button>
         </div>
 
         <div class="progress-section">
@@ -166,6 +168,14 @@
 
     
     <div class="side-panel">
+      <div class="card" id="queue-card" style="display:none;">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Fila de vídeos</span>
+          <span id="queue-count" style="color:var(--accent);font-weight:700;"></span>
+        </div>
+        <div id="queue-list-wrap"></div>
+      </div>
+
       <div class="card">
         <div class="card-header">Anotação atual</div>
         <div class="card-body">
@@ -207,7 +217,7 @@
 </div>
 
 <div id="toast"></div>
-<input type="file" id="file-input" accept="video/mp4" onchange="loadVideo(event)">
+<input type="file" id="file-input" accept="video/mp4" multiple onchange="loadFilesFromInput(event)">
 <input type="file" id="conv-file-input" accept="video/avi,.avi" multiple onchange="convFilesSelected(event)">
 
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>

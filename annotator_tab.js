@@ -204,7 +204,8 @@ function updateMarkers() {
 
   setMarker('marker-ueso', state.uesoFrame, state.uesoFrame !== null);
   setMarker('marker-uesc', state.uescFrame, state.uescFrame !== null);
-  setMarker('marker-suggestion', state.sugUESO, state.sugUESO !== null && state.uesoFrame === null);
+  setMarker('marker-suggestion',      state.sugUESO, state.sugUESO !== null && state.uesoFrame === null);
+  setMarker('marker-suggestion-uesc', state.sugUESC, state.sugUESC !== null && state.uescFrame === null);
 
   const hl = document.getElementById('dur-highlight');
   if (state.uesoFrame !== null && state.uescFrame !== null && state.uesoFrame < state.uescFrame) {

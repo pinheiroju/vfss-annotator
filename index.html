@@ -91,7 +91,10 @@
             <div id="timeline-progress" style="width:0%"></div>
             <div class="uesdur-highlight" id="dur-highlight"></div>
             <div class="marker" id="marker-suggestion">
-              <div class="marker-label">SUGESTÃO</div>
+              <div class="marker-label">UESO?</div>
+            </div>
+            <div class="marker" id="marker-suggestion-uesc">
+              <div class="marker-label">UESC?</div>
             </div>
             <div class="marker" id="marker-ueso">
               <div class="marker-label">UESO</div>
@@ -143,27 +146,6 @@
         </div>
       </div>
 
-      <div id="suggestion-panel">
-        <div class="sug-title">⚡ Sugestão Automática</div>
-        <div class="sug-row">
-          <span style="color:var(--text-dim)">UESO sugerido</span>
-          <span class="sug-val" id="sug-ueso-val">—</span>
-        </div>
-        <div class="sug-row">
-          <span style="color:var(--text-dim)">UESC sugerido</span>
-          <span class="sug-val" id="sug-uesc-val">—</span>
-        </div>
-        <div class="sug-row">
-          <span style="color:var(--text-dim)">UESOdur estimado</span>
-          <span class="sug-val" id="sug-dur-val">—</span>
-        </div>
-        <div class="sug-actions">
-          <button class="btn btn-accept" onclick="acceptSuggestion()">✓ Aceitar</button>
-          <button class="btn btn-reject" onclick="rejectSuggestion()">✗ Rejeitar</button>
-          <button class="btn" onclick="goToSugUESO()" style="font-size:10px;padding:6px 10px;">Ver UESO</button>
-          <button class="btn" onclick="goToSugUESC()" style="font-size:10px;padding:6px 10px;">Ver UESC</button>
-        </div>
-      </div>
     </div>
 
     
@@ -209,6 +191,28 @@
         </div>
         <div id="ann-list-wrap">
           <div class="empty-state">Nenhuma anotação ainda.<br>Marque UESO + UESC e pressione S.</div>
+        </div>
+      </div>
+
+      <div id="suggestion-panel" style="display:none;">
+        <div class="sug-title">⚡ Sugestão Automática</div>
+        <div class="sug-row">
+          <span style="color:var(--text-dim)">UESO sugerido</span>
+          <span class="sug-val" id="sug-ueso-val">—</span>
+        </div>
+        <div class="sug-row">
+          <span style="color:var(--text-dim)">UESC sugerido</span>
+          <span class="sug-val" id="sug-uesc-val">—</span>
+        </div>
+        <div class="sug-row">
+          <span style="color:var(--text-dim)">UESOdur estimado</span>
+          <span class="sug-val" id="sug-dur-val">—</span>
+        </div>
+        <div class="sug-actions">
+          <button class="btn btn-accept" onclick="acceptSuggestion()">✓ Aceitar</button>
+          <button class="btn btn-reject" onclick="rejectSuggestion()">✗ Rejeitar</button>
+          <button class="btn" onclick="goToSugUESO()" style="font-size:10px;padding:6px 10px;">Ver UESO</button>
+          <button class="btn" onclick="goToSugUESC()" style="font-size:10px;padding:6px 10px;">Ver UESC</button>
         </div>
       </div>
     </div>

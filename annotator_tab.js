@@ -454,10 +454,10 @@ async function runAutoDetect() {
   p1deltas.forEach((d, i) => { if (d > p1deltas[bestPos]) bestPos = i; });
   const roughUESOTime = (bestPos / (p1n - 1)) * totalDur;
 
-  // ── PASSAGEM 2: varredura fina ao redor do evento (200 amostras em ±2s) ──
+  // ── PASSAGEM 2: varredura fina ao redor do evento (200 amostras em janela ampliada) ──
   document.getElementById('btn-auto').textContent = 'Passagem 2/2…';
-  const p2start = Math.max(0,         roughUESOTime - 1.0);
-  const p2end   = Math.min(totalDur,  roughUESOTime + 3.0);
+  const p2start = Math.max(0,        roughUESOTime - 2.0);
+  const p2end   = Math.min(totalDur, roughUESOTime + 6.0);
   const p2n = 200;
   const p2times      = Array.from({length: p2n}, (_, i) => p2start + (i / (p2n-1)) * (p2end - p2start));
   const p2brightness = [];
@@ -470,24 +470,32 @@ async function runAutoDetect() {
   let uesoIdx = 0;
   p2deltas.forEach((d, i) => { if (d > p2deltas[uesoIdx]) uesoIdx = i; });
   const uesoFrame = Math.round(p2times[uesoIdx] * state.fps);
+  const uesoTimeSec = p2times[uesoIdx];
 
-  // UESC: maior delta negativo DEPOIS do UESO, dentro da janela temporal
-  // Restrição: entre 10 e 150 frames de distância (~0.3s – 5s a 30fps)
-  const minGap = 10;
-  const maxGap = 150;
+  // UESC: maior delta negativo DEPOIS do UESO
+  // Restrição principal: 0.3s – 8s depois do UESO (em segundos, independente do fps)
+  const minGapSec = 0.3;
+  const maxGapSec = 8.0;
   let uescIdx = -1;
   let minDelta = Infinity;
   for (let i = uesoIdx + 1; i < p2deltas.length; i++) {
-    const frameGap = Math.round(p2times[i] * state.fps) - uesoFrame;
-    if (frameGap < minGap) continue;
-    if (frameGap > maxGap) break;
+    const gapSec = p2times[i] - uesoTimeSec;
+    if (gapSec < minGapSec) continue;
+    if (gapSec > maxGapSec) break;
     if (p2deltas[i] < minDelta) { minDelta = p2deltas[i]; uescIdx = i; }
+  }
+
+  // Fallback: se não achou dentro da restrição, pega o maior delta negativo após o UESO
+  if (uescIdx === -1) {
+    for (let i = uesoIdx + 1; i < p2deltas.length; i++) {
+      if (p2deltas[i] < minDelta) { minDelta = p2deltas[i]; uescIdx = i; }
+    }
   }
 
   document.getElementById('btn-auto').disabled = false;
   document.getElementById('btn-auto').innerHTML = '<kbd>A</kbd> Auto-detectar';
 
-  if (uescIdx === -1) {
+  if (uescIdx === -1 || minDelta >= 0) {
     toast('⚠ Não foi possível detectar o fechamento. Tente marcar manualmente.', 3500);
     return;
   }

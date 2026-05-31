@@ -395,7 +395,7 @@ function exportCSV() {
 
 async function runAutoDetect() {
   if (!state.video) return;
-  toast('Analisando vídeo... pode levar alguns segundos.', 3000);
+  toast('Analisando vídeo… pode levar alguns segundos.', 3000);
   document.getElementById('btn-auto').disabled = true;
   document.getElementById('btn-auto').textContent = 'Analisando...';
 
@@ -408,74 +408,97 @@ async function runAutoDetect() {
   canvas.width = sampleW; canvas.height = sampleH;
   const ctx = canvas.getContext('2d');
 
-  const totalDur = vid.duration;
-  const sampleCount = Math.min(200, Math.floor(totalDur * state.fps));
-  const step = totalDur / sampleCount;
+  // ROI: faixa vertical onde o EES aparece (40%–90% da altura)
+  const roiTop    = Math.floor(sampleH * 0.40);
+  const roiBottom = Math.floor(sampleH * 0.90);
+  const roiPixels = (roiBottom - roiTop) * sampleW;
 
-  const diffs = [];
-  let prevData = null;
-
-  for (let i = 0; i < sampleCount; i++) {
-    vid.currentTime = i * step;
+  // Captura o brilho médio (luminância) do ROI num instante t
+  async function getBrightness(t) {
+    vid.currentTime = t;
     await new Promise(r => { vid.onseeked = r; setTimeout(r, 200); });
     ctx.drawImage(vid, 0, 0, sampleW, sampleH);
-    const imgData = ctx.getImageData(0, 0, sampleW, sampleH).data;
-
-    if (prevData) {
-      let diff = 0;
-      const startY = Math.floor(sampleH * 0.55);
-      const endY = Math.floor(sampleH * 0.85);
-      for (let y = startY; y < endY; y++) {
-        for (let x = 0; x < sampleW; x++) {
-          const idx = (y * sampleW + x) * 4;
-          diff += Math.abs(imgData[idx] - prevData[idx]);
-        }
-      }
-      diffs.push({ frame: Math.floor(i * step * state.fps), diff: diff / ((endY - startY) * sampleW) });
-    }
-    prevData = imgData;
+    const px = ctx.getImageData(0, roiTop, sampleW, roiBottom - roiTop).data;
+    let sum = 0;
+    for (let j = 0; j < px.length; j += 4)
+      sum += 0.299 * px[j] + 0.587 * px[j+1] + 0.114 * px[j+2];
+    return sum / roiPixels;
   }
 
-  state.diffData = diffs;
-
-  const smoothed = diffs.map((d, i) => {
-    const w = 3;
-    const slice = diffs.slice(Math.max(0, i-w), Math.min(diffs.length, i+w+1));
-    return { frame: d.frame, diff: slice.reduce((s,x) => s+x.diff, 0) / slice.length };
-  });
-
-  const vals = smoothed.map(d => d.diff);
-  const mean = vals.reduce((a,b) => a+b, 0) / vals.length;
-  const std = Math.sqrt(vals.reduce((a,b) => a + (b-mean)**2, 0) / vals.length);
-  const threshold = mean + std * 0.8;
-
-  const peaks = [];
-  for (let i = 1; i < smoothed.length - 1; i++) {
-    if (smoothed[i].diff > threshold &&
-        smoothed[i].diff >= smoothed[i-1].diff &&
-        smoothed[i].diff >= smoothed[i+1].diff) {
-      peaks.push(smoothed[i]);
-    }
+  // Suavização por média móvel
+  function smooth(arr, w = 3) {
+    return arr.map((v, i) => {
+      const sl = arr.slice(Math.max(0, i-w), Math.min(arr.length, i+w+1));
+      return sl.reduce((s, x) => s + x, 0) / sl.length;
+    });
   }
 
-  peaks.sort((a,b) => b.diff - a.diff);
-  const top2 = peaks.slice(0, 2).sort((a,b) => a.frame - b.frame);
+  const totalDur = vid.duration;
+
+  // ── PASSAGEM 1: varredura grossa (150 amostras no vídeo inteiro) ──────────
+  document.getElementById('btn-auto').textContent = 'Passagem 1/2…';
+  const p1n = 150;
+  const p1brightness = [];
+  for (let i = 0; i < p1n; i++) {
+    const t = (i / (p1n - 1)) * totalDur;
+    p1brightness.push(await getBrightness(t));
+  }
+
+  const p1smooth = smooth(p1brightness, 3);
+
+  // Delta de brilho: positivo = aumento (bário chegando), negativo = queda (bário passando)
+  const p1deltas = p1smooth.map((v, i) => i === 0 ? 0 : v - p1smooth[i-1]);
+
+  // UESO rough: maior delta positivo
+  let bestPos = 0;
+  p1deltas.forEach((d, i) => { if (d > p1deltas[bestPos]) bestPos = i; });
+  const roughUESOTime = (bestPos / (p1n - 1)) * totalDur;
+
+  // ── PASSAGEM 2: varredura fina ao redor do evento (200 amostras em ±2s) ──
+  document.getElementById('btn-auto').textContent = 'Passagem 2/2…';
+  const p2start = Math.max(0,         roughUESOTime - 1.0);
+  const p2end   = Math.min(totalDur,  roughUESOTime + 3.0);
+  const p2n = 200;
+  const p2times      = Array.from({length: p2n}, (_, i) => p2start + (i / (p2n-1)) * (p2end - p2start));
+  const p2brightness = [];
+  for (const t of p2times) p2brightness.push(await getBrightness(t));
+
+  const p2smooth = smooth(p2brightness, 3);
+  const p2deltas = p2smooth.map((v, i) => i === 0 ? 0 : v - p2smooth[i-1]);
+
+  // UESO fino: maior delta positivo na passagem 2
+  let uesoIdx = 0;
+  p2deltas.forEach((d, i) => { if (d > p2deltas[uesoIdx]) uesoIdx = i; });
+  const uesoFrame = Math.round(p2times[uesoIdx] * state.fps);
+
+  // UESC: maior delta negativo DEPOIS do UESO, dentro da janela temporal
+  // Restrição: entre 10 e 150 frames de distância (~0.3s – 5s a 30fps)
+  const minGap = 10;
+  const maxGap = 150;
+  let uescIdx = -1;
+  let minDelta = Infinity;
+  for (let i = uesoIdx + 1; i < p2deltas.length; i++) {
+    const frameGap = Math.round(p2times[i] * state.fps) - uesoFrame;
+    if (frameGap < minGap) continue;
+    if (frameGap > maxGap) break;
+    if (p2deltas[i] < minDelta) { minDelta = p2deltas[i]; uescIdx = i; }
+  }
 
   document.getElementById('btn-auto').disabled = false;
   document.getElementById('btn-auto').innerHTML = '<kbd>A</kbd> Auto-detectar';
 
-  if (top2.length < 2) {
-    toast('⚠ Não foi possível detectar 2 eventos claros. Marque manualmente.', 3500);
+  if (uescIdx === -1) {
+    toast('⚠ Não foi possível detectar o fechamento. Tente marcar manualmente.', 3500);
     return;
   }
 
-  state.sugUESO = top2[0].frame;
-  state.sugUESC = top2[1].frame;
-  const dur_ms = Math.round(((state.sugUESC - state.sugUESO) / state.fps) * 1000);
+  state.sugUESO = uesoFrame;
+  state.sugUESC = Math.round(p2times[uescIdx] * state.fps);
+  const dur_ms  = Math.round(((state.sugUESC - state.sugUESO) / state.fps) * 1000);
 
   document.getElementById('sug-ueso-val').textContent = `Frame ${state.sugUESO} (${(state.sugUESO/state.fps).toFixed(3)}s)`;
   document.getElementById('sug-uesc-val').textContent = `Frame ${state.sugUESC} (${(state.sugUESC/state.fps).toFixed(3)}s)`;
-  document.getElementById('sug-dur-val').textContent = `${dur_ms} ms`;
+  document.getElementById('sug-dur-val').textContent  = `${dur_ms} ms`;
   document.getElementById('suggestion-panel').style.display = 'block';
 
   updateMarkers();

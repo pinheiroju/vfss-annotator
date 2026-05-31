@@ -46,7 +46,7 @@ function switchTab(name) {
     conv.files = [];
     document.getElementById('conv-items').innerHTML = '';
     document.getElementById('conv-file-list').style.display = 'none';
-    document.getElementById('conv-drop-zone').style.display = 'block';
+    document.getElementById('conv-drop-zone').style.display = 'flex';
     document.getElementById('btn-convert').disabled = true;
     document.getElementById('btn-conv-clear').style.display = 'none';
     document.getElementById('conv-overall-label').textContent = '';
@@ -79,24 +79,26 @@ function switchTab(name) {
     if (el) el.style.width = pct + '%';
   }
   
+  async function createFFmpegInstance() {
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    const instance = createFFmpeg({
+      log: false,
+      corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+    });
+    await instance.load();
+    conv.fetchFile = fetchFile;
+    return instance;
+  }
+
   async function loadFFmpeg() {
-    if (conv.loaded) return true;
-  
+    if (conv.loaded) return true;  // já carregou, reutiliza
+
     document.getElementById('conv-loading').style.display = 'block';
     document.getElementById('conv-status-text').textContent = 'Carregando FFmpeg…';
-  
+
     try {
-      // FFmpeg.wasm v0.12 — CDN via unpkg
-      const { createFFmpeg, fetchFile } = FFmpeg;
-      conv.ffmpeg = createFFmpeg({
-        log: false,
-        corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
-      });
-  
-      await conv.ffmpeg.load();
+      conv.ffmpeg = await createFFmpegInstance();
       conv.loaded = true;
-      conv.fetchFile = fetchFile;
-  
       document.getElementById('conv-loading').style.display = 'none';
       document.getElementById('conv-status-dot').classList.add('active');
       document.getElementById('conv-status-text').textContent = 'FFmpeg pronto';
@@ -109,68 +111,76 @@ function switchTab(name) {
       return false;
     }
   }
-  
-  
+
+
   async function startConversion() {
     document.getElementById('btn-convert').disabled = true;
-  
+
+    // Sempre cria uma instância nova para garantir memória limpa
     const ok = await loadFFmpeg();
     if (!ok) {
       document.getElementById('btn-convert').disabled = false;
       return;
     }
-  
-    const ffmpeg = conv.ffmpeg;
+
     let done = 0;
-  
+
     for (let i = 0; i < conv.files.length; i++) {
       const { file } = conv.files[i];
-      const inputName  = `input_${i}.avi`;
+      const inputName  = 'input.avi';
       const outputName = file.name.replace(/\.avi$/i, '.mp4');
-  
+
       setItemStatus(i, 'loading', 'Convertendo…');
       setItemProgress(i, 10);
-  
+
       try {
-        
+        // Reinicia o FFmpeg a cada 5 arquivos para liberar memória
+        if (i > 0 && i % 5 === 0) {
+          document.getElementById('conv-status-text').textContent = `Liberando memória… (${i}/${conv.files.length})`;
+          conv.ffmpeg = await createFFmpegInstance();
+          document.getElementById('conv-status-text').textContent = 'FFmpeg pronto';
+        }
+
+        const ffmpeg = conv.ffmpeg;
+
         ffmpeg.FS('writeFile', inputName, await conv.fetchFile(file));
         setItemProgress(i, 30);
-  
-        
+
         await ffmpeg.run(
           '-i', inputName,
           '-c:v', 'libx264',
           '-profile:v', 'baseline',
           '-pix_fmt', 'yuv420p',
           '-crf', '18',
-          '-movflags', 'faststart',  
+          '-movflags', 'faststart',
           outputName
         );
-  
+
         setItemProgress(i, 80);
-  
-        
+
         const data = ffmpeg.FS('readFile', outputName);
         const blob = new Blob([data.buffer], { type: 'video/mp4' });
         const url  = URL.createObjectURL(blob);
-  
+
         const a = document.createElement('a');
         a.href = url;
         a.download = outputName;
         a.click();
-  
-        
-        ffmpeg.FS('unlink', inputName);
-        ffmpeg.FS('unlink', outputName);
-  
+
+        try { ffmpeg.FS('unlink', inputName); } catch(_) {}
+        try { ffmpeg.FS('unlink', outputName); } catch(_) {}
+
         setItemProgress(i, 100);
         setItemStatus(i, 'done', '✓ Baixado');
         done++;
-  
+
       } catch (err) {
         console.error(`Erro ao converter ${file.name}:`, err);
         setItemStatus(i, 'error', '✗ Erro');
         setItemProgress(i, 0);
+
+        // Se o FFmpeg travou, recria para o próximo arquivo
+        try { conv.ffmpeg = await createFFmpegInstance(); } catch(_) {}
       }
     }
   

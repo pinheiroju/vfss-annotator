@@ -47,6 +47,26 @@ function nextVideo() {
   if (state.queueIndex < state.queue.length - 1) loadQueueItem(state.queueIndex + 1);
 }
 
+function removeFromQueue(i) {
+  state.queue.splice(i, 1);
+
+  // Ajusta o índice atual após remoção
+  if (state.queue.length === 0) {
+    state.queueIndex = -1;
+    renderQueue();
+    return;
+  }
+  if (i < state.queueIndex) {
+    state.queueIndex--;
+  } else if (i === state.queueIndex) {
+    // Removeu o vídeo atual — carrega o próximo (ou o anterior se era o último)
+    state.queueIndex = Math.min(state.queueIndex, state.queue.length - 1);
+    loadQueueItem(state.queueIndex);
+    return;
+  }
+  renderQueue();
+}
+
 function renderQueue() {
   const card = document.getElementById('queue-card');
   if (state.queue.length <= 1) { card.style.display = 'none'; return; }
@@ -60,10 +80,11 @@ function renderQueue() {
     const active = i === state.queueIndex ? 'queue-item-active' : '';
     const icon = item.status === 'done' ? '✓' : '·';
     const iconColor = item.status === 'done' ? 'var(--accent)' : 'var(--text-dim)';
-    const short = item.file.name.length > 22 ? item.file.name.slice(0, 20) + '…' : item.file.name;
-    return `<div class="queue-item ${active}" onclick="loadQueueItem(${i})" title="${item.file.name}">
-      <span style="color:${iconColor};font-weight:700;min-width:14px;">${icon}</span>
-      <span>${short}</span>
+    const short = item.file.name.length > 18 ? item.file.name.slice(0, 16) + '…' : item.file.name;
+    return `<div class="queue-item ${active}" title="${item.file.name}">
+      <span style="color:${iconColor};font-weight:700;min-width:14px;" onclick="loadQueueItem(${i})">${icon}</span>
+      <span style="flex:1;cursor:pointer;" onclick="loadQueueItem(${i})">${short}</span>
+      <button class="queue-del-btn" onclick="removeFromQueue(${i})" title="Remover da fila">✕</button>
     </div>`;
   }).join('');
 
@@ -309,6 +330,16 @@ function markUESC() {
 
 function saveAnnotation() {
   if (!state.video) return;
+
+  // Se há sugestão pendente, aceita automaticamente antes de salvar
+  if (state.uesoFrame === null && state.sugUESO !== null) {
+    state.uesoFrame = state.sugUESO;
+    state.uescFrame = state.sugUESC;
+    state.sugUESO = null;
+    state.sugUESC = null;
+    document.getElementById('suggestion-panel').style.display = 'none';
+  }
+
   if (state.uesoFrame === null || state.uescFrame === null) {
     toast('⚠ Marque UESO e UESC antes de salvar!', 2500); return;
   }
@@ -461,6 +492,15 @@ async function runAutoDetect() {
 
   peaks.sort((a,b) => b.diff - a.diff);
   const top2 = peaks.slice(0, 2).sort((a,b) => a.frame - b.frame);
+
+  console.log('[AutoDetect] duração:', totalDur.toFixed(2) + 's');
+  console.log('[AutoDetect] amostras:', sampleCount);
+  console.log('[AutoDetect] mean:', mean.toFixed(4), '| std:', std.toFixed(4), '| threshold:', threshold.toFixed(4));
+  console.log('[AutoDetect] picos encontrados:', peaks.length, peaks.map(p => `frame ${p.frame} diff ${p.diff.toFixed(4)}`));
+  console.log('[AutoDetect] top2:', top2);
+
+  // Restaura o onseeked para o handler normal (foi sobrescrito durante a análise)
+  vid.onseeked = () => renderFrame();
 
   document.getElementById('btn-auto').disabled = false;
   document.getElementById('btn-auto').innerHTML = '<kbd>A</kbd> Auto-detectar';

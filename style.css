@@ -208,8 +208,8 @@
   #marker-uesc { background: var(--uesc); display: none; }
   #marker-uesc .marker-label { background: var(--uesc); color: #fff; }
 
-  #marker-suggestion { background: var(--suggestion); display: none; opacity: 0.6; }
-  #marker-suggestion .marker-label { background: var(--suggestion); color: #000; }
+  #marker-suggestion { background: var(--ueso); display: none; opacity: 0.6; }
+  #marker-suggestion .marker-label { background: var(--ueso); color: #fff; }
 
   #marker-suggestion-uesc { background: var(--uesc); display: none; opacity: 0.6; }
   #marker-suggestion-uesc .marker-label { background: var(--uesc); color: #fff; }
@@ -552,3 +552,16 @@
 .queue-item:last-child { border-bottom: none; }
 .queue-item:hover { background: var(--border); color: var(--text); }
 .queue-item-active { background: rgba(0,229,255,0.07); color: var(--text); }
+.queue-del-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.queue-item:hover .queue-del-btn { opacity: 1; }
+.queue-del-btn:hover { color: var(--uesc); }

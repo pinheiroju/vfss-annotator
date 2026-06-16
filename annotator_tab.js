@@ -411,6 +411,64 @@ function updateProgress() {
   document.getElementById('progress-bar-fill').style.width = pct + '%';
 }
 
+function importCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const lines = e.target.result.trim().split('\n');
+    if (lines.length < 2) { toast('⚠ CSV vazio ou inválido.', 2500); return; }
+
+    const header = lines[0].split(',');
+    const required = ['filename','fps','ueso_frame','ueso_time_s','uesc_frame','uesc_time_s','ues_odur_ms'];
+    const missing = required.filter(h => !header.includes(h));
+    if (missing.length > 0) {
+      toast(`⚠ CSV não reconhecido. Colunas faltando: ${missing.join(', ')}`, 3500);
+      return;
+    }
+
+    const idx = (col) => header.indexOf(col);
+    let imported = 0;
+    let skipped = 0;
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',');
+      if (cols.length < required.length) continue;
+
+      const filename = cols[idx('filename')].trim();
+      // Evita duplicatas (mesmo arquivo + mesmo ueso_frame)
+      const already = state.annotations.some(
+        a => a.filename === filename && a.ueso_frame === parseInt(cols[idx('ueso_frame')])
+      );
+      if (already) { skipped++; continue; }
+
+      state.annotations.push({
+        id: Date.now() + i,
+        filename,
+        fps:        parseFloat(cols[idx('fps')]),
+        ueso_frame: parseInt(cols[idx('ueso_frame')]),
+        ueso_time:  cols[idx('ueso_time_s')].trim(),
+        uesc_frame: parseInt(cols[idx('uesc_frame')]),
+        uesc_time:  cols[idx('uesc_time_s')].trim(),
+        ues_odur_ms: parseInt(cols[idx('ues_odur_ms')]),
+      });
+      imported++;
+    }
+
+    renderAnnotationsList();
+    updateProgress();
+    event.target.value = '';
+
+    if (skipped > 0) {
+      toast(`✓ ${imported} anotação(ões) importada(s). ${skipped} duplicata(s) ignorada(s).`, 3500);
+    } else {
+      toast(`✓ ${imported} anotação(ões) importada(s) com sucesso!`, 3000);
+    }
+  };
+  reader.readAsText(file);
+}
+
 function exportCSV() {
   if (state.annotations.length === 0) { toast('Nenhuma anotação para exportar!', 2000); return; }
   const headers = ['filename','fps','ueso_frame','ueso_time_s','uesc_frame','uesc_time_s','ues_odur_ms'];

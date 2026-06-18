@@ -26,6 +26,130 @@ function loadFilesFromInput(event) {
   loadQueueItem(0);
 }
 
+// Adiciona arquivos ao final da fila sem perder anotações
+function appendFilesToQueue(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+
+  // Evita duplicatas de nome
+  const existing = new Set(state.queue.map(q => q.file.name));
+  const novos = files.filter(f => !existing.has(f.name));
+
+  if (novos.length === 0) {
+    toast('⚠ Todos os arquivos selecionados já estão na fila.', 2500);
+    event.target.value = '';
+    return;
+  }
+
+  state.queue.push(...novos.map(f => ({ file: f, status: 'pending' })));
+  renderQueue();
+  event.target.value = '';
+  toast(`✓ ${novos.length} vídeo(s) adicionado(s) à fila.`, 2000);
+}
+
+// Verifica se há anotação importada para o vídeo atual e pré-preenche os marcadores
+function loadAnnotationForVideo(filename) {
+  const ann = state.annotations.find(a => a.filename === filename);
+  if (!ann) return;
+
+  // Sempre mostra o diálogo quando há anotação importada para o vídeo
+  showReplaceDialog(ann);
+}
+
+function applyAnnotation(ann) {
+  state.uesoFrame = ann.ueso_frame;
+  state.uescFrame = ann.uesc_frame;
+  updateMarkers();
+  renderFrame();
+}
+
+function showReplaceDialog(ann) {
+  const old = document.getElementById('replace-dialog');
+  if (old) old.remove();
+
+  const dialog = document.createElement('div');
+  dialog.id = 'replace-dialog';
+  dialog.style.cssText = `
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 4px; padding: 24px; z-index: 200;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 340px;
+  `;
+  dialog.innerHTML = `
+    <div style="color:var(--suggestion);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;">
+      ⚡ Anotação existente encontrada
+    </div>
+    <div style="color:var(--text-dim);margin-bottom:16px;line-height:2;">
+      <strong style="color:var(--text)">${ann.filename}</strong> já tem marcações importadas:<br>
+      <span style="color:var(--ueso)">UESO: frame ${ann.ueso_frame} (${ann.ueso_time}s)</span><br>
+      <span style="color:var(--uesc)">UESC: frame ${ann.uesc_frame} (${ann.uesc_time}s)</span><br>
+      <span style="color:var(--accent3)">UESOdur: ${ann.ues_odur_ms}ms</span>
+    </div>
+    <div style="color:var(--text);margin-bottom:12px;">O que deseja fazer?</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+
+      <button class="btn btn-primary" id="dlg-keep-imported">
+        ↩ Manter o que já existia
+      </button>
+
+      <button class="btn btn-ueso" id="dlg-reannotate">
+        ✎ Apagar e marcar novamente
+      </button>
+
+      <button class="btn" id="dlg-keep-both">
+        + Manter as duas
+      </button>
+
+      <button class="btn btn-auto" id="dlg-keep-none">
+        ✕ Apagar as duas
+      </button>
+
+    </div>
+  `;
+  document.body.appendChild(dialog);
+
+  // Opção 1 — manter o que já existia: aplica a importada, marca o vídeo como feito e pula para o próximo
+  document.getElementById('dlg-keep-imported').onclick = () => {
+    applyAnnotation(ann);
+    // Marca como concluído na fila e avança automaticamente
+    if (state.queueIndex >= 0) state.queue[state.queueIndex].status = 'done';
+    renderQueue();
+    saveAnnotation(true); // salva silenciosamente
+    dialog.remove();
+    toast('✓ Anotação existente mantida.', 2000);
+  };
+
+  // Opção 2 — apagar importada e marcar do zero: remove das anotações salvas, limpa marcadores
+  document.getElementById('dlg-reannotate').onclick = () => {
+    state.annotations = state.annotations.filter(a => !(a.filename === ann.filename && a.ueso_frame === ann.ueso_frame));
+    state.uesoFrame = null;
+    state.uescFrame = null;
+    updateMarkers(); renderFrame();
+    renderAnnotationsList(); updateProgress();
+    dialog.remove();
+    toast('Anotação anterior removida. Marque novamente.', 2500);
+  };
+
+  // Opção 3 — manter as duas: aplica a importada nos marcadores mas mantém ambas nas anotações salvas
+  document.getElementById('dlg-keep-both').onclick = () => {
+    applyAnnotation(ann);
+    dialog.remove();
+    toast('Mostrando anotação importada. Salve para adicionar nova.', 2500);
+  };
+
+  // Opção 4 — apagar as duas: remove das anotações salvas e limpa marcadores
+  document.getElementById('dlg-keep-none').onclick = () => {
+    state.annotations = state.annotations.filter(a => !(a.filename === ann.filename && a.ueso_frame === ann.ueso_frame));
+    state.uesoFrame = null;
+    state.uescFrame = null;
+    updateMarkers(); renderFrame();
+    renderAnnotationsList(); updateProgress();
+    dialog.remove();
+    toast('Anotações apagadas.', 2000);
+  };
+}
+
 function loadQueueItem(index) {
   if (index < 0 || index >= state.queue.length) return;
   state.queueIndex = index;
@@ -69,7 +193,7 @@ function removeFromQueue(i) {
 
 function renderQueue() {
   const card = document.getElementById('queue-card');
-  if (state.queue.length <= 1) { card.style.display = 'none'; return; }
+  if (state.queue.length === 0) { card.style.display = 'none'; return; }
   card.style.display = 'block';
 
   const done = state.queue.filter(q => q.status === 'done').length;
@@ -139,7 +263,13 @@ function loadVideo(event) {
     });
 
     updateMarkers();
-    toast('Vídeo carregado! Pressione A para auto-detectar.', 3000);
+
+    // Verificar se há anotação importada para este vídeo
+    loadAnnotationForVideo(file.name);
+
+    if (state.uesoFrame === null) {
+      toast('Vídeo carregado! Pressione A para auto-detectar.', 3000);
+    }
   };
 
   vid.onloadeddata = () => {
@@ -328,7 +458,7 @@ function markUESC() {
   renderFrame();
 }
 
-function saveAnnotation() {
+function saveAnnotation(silent = false) {
   if (!state.video) return;
 
   // Se há sugestão pendente, aceita automaticamente antes de salvar
@@ -341,10 +471,12 @@ function saveAnnotation() {
   }
 
   if (state.uesoFrame === null || state.uescFrame === null) {
-    toast('⚠ Marque UESO e UESC antes de salvar!', 2500); return;
+    if (!silent) toast('⚠ Marque UESO e UESC antes de salvar!', 2500);
+    return;
   }
   if (state.uesoFrame >= state.uescFrame) {
-    toast('⚠ UESO deve vir antes do UESC!', 2500); return;
+    if (!silent) toast('⚠ UESO deve vir antes do UESC!', 2500);
+    return;
   }
   const dur_ms = Math.round(((state.uescFrame - state.uesoFrame) / state.fps) * 1000);
   const ann = {
@@ -365,14 +497,16 @@ function saveAnnotation() {
     state.queue[state.queueIndex].status = 'done';
     renderQueue();
     const nextIdx = state.queueIndex + 1;
-    if (nextIdx < state.queue.length) {
-      toast(`✓ Salvo! Carregando próximo vídeo… (${nextIdx + 1}/${state.queue.length})`, 2500);
-      setTimeout(() => loadQueueItem(nextIdx), 800);
-    } else {
-      toast(`✓ Todos os ${state.queue.length} vídeos anotados! Exporte o CSV.`, 3500);
+    if (!silent) {
+      if (nextIdx < state.queue.length) {
+        toast(`✓ Salvo! Carregando próximo vídeo… (${nextIdx + 1}/${state.queue.length})`, 2500);
+        setTimeout(() => loadQueueItem(nextIdx), 800);
+      } else {
+        toast(`✓ Todos os ${state.queue.length} vídeos anotados! Exporte o CSV.`, 3500);
+      }
     }
   } else {
-    toast(`✓ Anotação salva! UESOdur = ${dur_ms}ms`, 3000);
+    if (!silent) toast(`✓ Anotação salva! UESOdur = ${dur_ms}ms`, 3000);
   }
 }
 

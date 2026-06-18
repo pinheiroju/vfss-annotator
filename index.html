@@ -156,7 +156,11 @@
       <div class="card" id="queue-card" style="display:none;">
         <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span>Fila de vídeos</span>
-          <span id="queue-count" style="color:var(--accent);font-weight:700;"></span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span id="queue-count" style="color:var(--accent);font-weight:700;"></span>
+            <button class="btn" onclick="document.getElementById('append-file-input').click()"
+              style="font-size:10px;padding:4px 10px;" title="Adicionar mais vídeos à fila">+ Adicionar</button>
+          </div>
         </div>
         <div id="queue-list-wrap"></div>
       </div>
@@ -225,6 +229,7 @@
 
 <div id="toast"></div>
 <input type="file" id="file-input" accept="video/mp4" multiple onchange="loadFilesFromInput(event)">
+<input type="file" id="append-file-input" accept="video/mp4" multiple onchange="appendFilesToQueue(event)">
 <input type="file" id="csv-import-input" accept=".csv" onchange="importCSV(event)">
 <input type="file" id="conv-file-input" accept="video/avi,.avi" multiple onchange="convFilesSelected(event)">
 

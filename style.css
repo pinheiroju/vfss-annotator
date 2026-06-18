@@ -566,3 +566,5 @@
 }
 .queue-item:hover .queue-del-btn { opacity: 1; }
 .queue-del-btn:hover { color: var(--uesc); }
+
+#append-file-input { display: none; }
